@@ -1,0 +1,27 @@
+// CPSC 457 Assignment 1 Part B
+// Authors: Nathaniel Appiah, Pradhyuman Nandal
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <sys/wait.h>
+#include <sys/shm.h>
+
+int main (int argc, char *args[]) {
+    // If input arguments are incorrect upon starting the program.
+    // Checks if there is 4 arguments in total (program, lower bound, upper bound, number of processes)
+    if (argc != 4) {
+        fprintf(stderr, "Input error. Program input must be integers in the following format: \n [Lower Bound] [Upper Bound] [Number of processes]");  // Error message for incorrect input
+        exit(1);    // Generic Error program exit
+    }
+
+    int LOWER_BOUND = atoi(args[1]);
+    int UPPER_BOUND = atoi(args[2]);
+    int N = atoi(args[3]);
+
+    // pid_t fr;
+    // fr = fork();
+    // if (fr < 0) {
+    //     fprintf(stderr, "Fork Failed");
+    return 0;   // The program successfully reached the end w/o fail.
+    }
