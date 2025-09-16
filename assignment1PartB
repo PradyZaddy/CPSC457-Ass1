@@ -7,6 +7,7 @@
 #include <sys/wait.h>
 #include <sys/shm.h>
 
+
 int main (int argc, char *args[]) {
     // If input arguments are incorrect upon starting the program.
     // Checks if there is 4 arguments in total (program, lower bound, upper bound, number of processes)
@@ -15,13 +16,58 @@ int main (int argc, char *args[]) {
         exit(1);    // Generic Error program exit
     }
 
-    int LOWER_BOUND = atoi(args[1]);
-    int UPPER_BOUND = atoi(args[2]);
+    int LOWER_BOUND = atoi(args[1]);    // Upper Bound Argument
+    int UPPER_BOUND = atoi(args[2]);    // Lower Bound Argument
     int N = atoi(args[3]);
 
-    // pid_t fr;
-    // fr = fork();
+    // Setting error for invalid lower bound
+    if (LOWER_BOUND > UPPER_BOUND) {
+        fprintf(stderr, "Lower bound must be less than upper bound");
+        exit(1);
+    }
+
+    // Setting error for invalid upper bound
+    if (UPPER_BOUND < LOWER_BOUND) {
+        fprintf(stderr, "Upper bound must be greater than lower bound");
+        exit(1);
+    }
+
+    // Setting error for invalid number of processes
+    if (N <= 0) {
+        fprintf(stderr, "Number of processes (N) must be greater than 0");
+        exit(1);
+    }
+
+
+
+
+
+    // Allocate shared memory
+    // Give each child its own block
+    // 1000 integers per process to fit the number of integers, plus 4 bytes for the count of amount of primes in total.
+    size_t block_ints_in_bytes = 1001 * sizeof(int);
+    
+    // Total memory allocated for all processes (N) altogether.
+    size_t total_memory_in_bytes = block_ints_in_bytes * N;
+
+    // IPC_PRIVATE ensures the key used is private
+    // 4000 bytes allocated to ensure a maximum of 1000 integers + plus the 4 bytes for the count of the amount of primes, since each integer is 4 bytes
+    int shmid = shmget(IPC_PRIVATE, total_memory_in_bytes, 0666 | IPC_CREAT);
+
+    // Access shared memory to read and write 
+    int *mem = (int*) shmat(shmid, NULL, 0);
+
+    pid_t fr;
+    fr = fork();
     // if (fr < 0) {
     //     fprintf(stderr, "Fork Failed");
     return 0;   // The program successfully reached the end w/o fail.
     }
+int is_prime(int num) {
+    if (num < 2) return 0;
+    for (int i = 2; i <= sqrt(num); i++) {
+    if (num % i == 0) return 0;
+    }
+    return 1;
+    }
+    
