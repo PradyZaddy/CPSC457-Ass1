@@ -8,6 +8,13 @@
 #include <sys/shm.h>
 #include <math.h>
 
+int is_prime(int num) {
+    if (num < 2) return 0;
+    for (int i = 2; i <= sqrt(num); i++) {
+    if (num % i == 0) return 0;
+    }
+    return 1;
+}
 
 int main (int argc, char *args[]) {
     // If input arguments are incorrect upon starting the program.
@@ -135,11 +142,5 @@ int main (int argc, char *args[]) {
     shmdt(mem);
     shmctl(shmid, IPC_RMID, NULL);
 }
-int is_prime(int num) {
-    if (num < 2) return 0;
-    for (int i = 2; i <= sqrt(num); i++) {
-    if (num % i == 0) return 0;
-    }
-    return 1;
-    }
+
     
