@@ -6,6 +6,7 @@
 #include <unistd.h>
 #include <sys/wait.h>
 #include <sys/shm.h>
+#include <math.h>
 
 
 int main (int argc, char *args[]) {
@@ -54,15 +55,86 @@ int main (int argc, char *args[]) {
     // 4000 bytes allocated to ensure a maximum of 1000 integers + plus the 4 bytes for the count of the amount of primes, since each integer is 4 bytes
     int shmid = shmget(IPC_PRIVATE, total_memory_in_bytes, 0666 | IPC_CREAT);
 
-    // Access shared memory to read and write 
+    // Access shared memory to read and write through mem
     int *mem = (int*) shmat(shmid, NULL, 0);
 
-    pid_t fr;
-    fr = fork();
-    // if (fr < 0) {
-    //     fprintf(stderr, "Fork Failed");
-    return 0;   // The program successfully reached the end w/o fail.
+    // Now each child must only write a set bound of prime numbers to ensure zero overlap
+    // First determine size of each child bound
+    int child_bound_size = (UPPER_BOUND - LOWER_BOUND + 1) / N;
+
+    // If the range is not evenly divisible by the number of processes, take remainder
+    int remainder = (UPPER_BOUND - LOWER_BOUND + 1) % N;
+    
+    // For loop to run each child process one at a time
+    for (int i = 0; i < N; i++) {
+        pid_t pid;
+        pid = fork(); // Fork a new child
+    
+
+
+        if (pid == 0) {
+            // Now allocate the child bound for the particular child
+            int current_child_lower_bound = LOWER_BOUND + (child_bound_size * i);
+            int current_child_upper_bound = LOWER_BOUND + ((child_bound_size * (i + 1)) - 1);
+
+            // Conditional for last child to receive the remainder in the event that the number of processes is not evenly divisible
+            if (i == N-1) {
+                current_child_upper_bound += remainder;
+            }
+
+            // To write the number of primes found in each child, child_block divides each child by their allocated block in mem
+            int *child_block = mem + i * block_ints_in_bytes / sizeof(int);
+
+            // initialize the count of primes found in range, starting from 0.
+            int prime_number_count = 0;
+
+            // Print the child pid along with the current range that is being checked.
+            fprintf(stdout, "Child PID %d checking range [%d, %d]\n", getpid(), current_child_lower_bound, current_child_upper_bound);
+            
+            // Loop through all numbers in the bound of the current child and determine if each is prime or not
+            for (int number = current_child_lower_bound; number <= current_child_upper_bound; number++) {
+                if (is_prime(number)) {
+                    // Add the found prime number to the block, in a line starting from the immediate right side
+                    // of the prime number count, and extending outwards for each new prime number
+                    child_block[1 + prime_number_count] = number;
+
+                    // Increment the count of prime numbers found
+                    prime_number_count ++;
+                }
+            }
+
+            // Allocate the amount of prime numbers found into the 0th index of the child block
+            child_block[0] = prime_number_count;
+            _exit(0);
+        } else if (pid < 0) {       // If the process ID is less than 0, mark this as an error
+            fprintf(stderr, "Fork Failed!");
+            exit(1);
+        } 
     }
+
+    for (int j = 0; j < N; j++) {
+        wait(NULL);
+    }
+
+    fprintf(stdout, "Parent: All children finished. Primes found:\n");
+
+    // Initializes a child block for each child once again to print out each child's found prime numbers in their respective allocated range
+    for (int k = 0; k < N; k++) {
+        int *child_block = mem + k * (block_ints_in_bytes / sizeof(int));
+        int prime_number_count = child_block[0];
+
+        // For loop will cycle to each child's block and print out the prime numbers placed into each block altogether in a list of numbers
+        for (int l = 0; l < prime_number_count; l++) {
+            fprintf(stdout, "%d ", child_block[1 + l]); // Prints each prime number one by one
+        }
+
+    }       
+    // Makes a new line to separate the list of prime numbers outputted from the terminal prompt.
+    printf("\n");
+    // Detaches the shared memory after it was accessed after initializing mem.
+    shmdt(mem);
+    shmctl(shmid, IPC_RMID, NULL);
+}
 int is_prime(int num) {
     if (num < 2) return 0;
     for (int i = 2; i <= sqrt(num); i++) {
