@@ -1,0 +1,146 @@
+// CPSC 457 Assignment 1 Part B
+// Authors: Nathaniel Appiah, Pradhyuman Nandal
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <sys/wait.h>
+#include <sys/shm.h>
+#include <math.h>
+
+int is_prime(int num) {
+    if (num < 2) return 0;
+    for (int i = 2; i <= sqrt(num); i++) {
+    if (num % i == 0) return 0;
+    }
+    return 1;
+}
+
+int main (int argc, char *args[]) {
+    // If input arguments are incorrect upon starting the program.
+    // Checks if there is 4 arguments in total (program, lower bound, upper bound, number of processes)
+    if (argc != 4) {
+        fprintf(stderr, "Input error. Program input must be integers in the following format: \n [Lower Bound] [Upper Bound] [Number of processes]");  // Error message for incorrect input
+        exit(1);    // Generic Error program exit
+    }
+
+    int LOWER_BOUND = atoi(args[1]);    // Upper Bound Argument
+    int UPPER_BOUND = atoi(args[2]);    // Lower Bound Argument
+    int N = atoi(args[3]);
+
+    // Setting error for invalid lower bound
+    if (LOWER_BOUND > UPPER_BOUND) {
+        fprintf(stderr, "Lower bound must be less than upper bound");
+        exit(1);
+    }
+
+    // Setting error for invalid upper bound
+    if (UPPER_BOUND < LOWER_BOUND) {
+        fprintf(stderr, "Upper bound must be greater than lower bound");
+        exit(1);
+    }
+
+    // Setting error for invalid number of processes
+    if (N <= 0) {
+        fprintf(stderr, "Number of processes (N) must be greater than 0");
+        exit(1);
+    }
+
+
+
+
+
+    // Allocate shared memory
+    // Give each child its own block
+    // 1000 integers per process to fit the number of integers, plus 4 bytes for the count of amount of primes in total.
+    size_t block_ints_in_bytes = 1001 * sizeof(int);
+    
+    // Total memory allocated for all processes (N) altogether.
+    size_t total_memory_in_bytes = block_ints_in_bytes * N;
+
+    // IPC_PRIVATE ensures the key used is private
+    // 4000 bytes allocated to ensure a maximum of 1000 integers + plus the 4 bytes for the count of the amount of primes, since each integer is 4 bytes
+    int shmid = shmget(IPC_PRIVATE, total_memory_in_bytes, 0666 | IPC_CREAT);
+
+    // Access shared memory to read and write through mem
+    int *mem = (int*) shmat(shmid, NULL, 0);
+
+    // Now each child must only write a set bound of prime numbers to ensure zero overlap
+    // First determine size of each child bound
+    int child_bound_size = (UPPER_BOUND - LOWER_BOUND + 1) / N;
+
+    // If the range is not evenly divisible by the number of processes, take remainder
+    int remainder = (UPPER_BOUND - LOWER_BOUND + 1) % N;
+    
+    // For loop to run each child process one at a time
+    for (int i = 0; i < N; i++) {
+        pid_t pid;
+        pid = fork(); // Fork a new child
+    
+
+
+        if (pid == 0) {
+            // Now allocate the child bound for the particular child
+            int current_child_lower_bound = LOWER_BOUND + (child_bound_size * i);
+            int current_child_upper_bound = LOWER_BOUND + ((child_bound_size * (i + 1)) - 1);
+
+            // Conditional for last child to receive the remainder in the event that the number of processes is not evenly divisible
+            if (i == N-1) {
+                current_child_upper_bound += remainder;
+            }
+
+            // To write the number of primes found in each child, child_block divides each child by their allocated block in mem
+            int *child_block = mem + i * block_ints_in_bytes / sizeof(int);
+
+            // initialize the count of primes found in range, starting from 0.
+            int prime_number_count = 0;
+
+            // Print the child pid along with the current range that is being checked.
+            fprintf(stdout, "Child PID %d checking range [%d, %d]\n", getpid(), current_child_lower_bound, current_child_upper_bound);
+            
+            // Loop through all numbers in the bound of the current child and determine if each is prime or not
+            for (int number = current_child_lower_bound; number <= current_child_upper_bound; number++) {
+                if (is_prime(number)) {
+                    // Add the found prime number to the block, in a line starting from the immediate right side
+                    // of the prime number count, and extending outwards for each new prime number
+                    child_block[1 + prime_number_count] = number;
+
+                    // Increment the count of prime numbers found
+                    prime_number_count ++;
+                }
+            }
+
+            // Allocate the amount of prime numbers found into the 0th index of the child block
+            child_block[0] = prime_number_count;
+            _exit(0);
+        } else if (pid < 0) {       // If the process ID is less than 0, mark this as an error
+            fprintf(stderr, "Fork Failed!");
+            exit(1);
+        } 
+    }
+
+    for (int j = 0; j < N; j++) {
+        wait(NULL);
+    }
+
+    fprintf(stdout, "Parent: All children finished. Primes found:\n");
+
+    // Initializes a child block for each child once again to print out each child's found prime numbers in their respective allocated range
+    for (int k = 0; k < N; k++) {
+        int *child_block = mem + k * (block_ints_in_bytes / sizeof(int));
+        int prime_number_count = child_block[0];
+
+        // For loop will cycle to each child's block and print out the prime numbers placed into each block altogether in a list of numbers
+        for (int l = 0; l < prime_number_count; l++) {
+            fprintf(stdout, "%d ", child_block[1 + l]); // Prints each prime number one by one
+        }
+
+    }       
+    // Makes a new line to separate the list of prime numbers outputted from the terminal prompt.
+    printf("\n");
+    // Detaches the shared memory after it was accessed after initializing mem.
+    shmdt(mem);
+    shmctl(shmid, IPC_RMID, NULL);
+}
+
+    
