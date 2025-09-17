@@ -131,25 +131,33 @@ int main (int argc, char *args[]) {
     }
 
     for (int j = 0; j < N; j++) {
+        // Uses wait(NULL) to have the parent process wait for all of the N children to complete their tasks and terminate
         wait(NULL);
     }
 
+    // After parent has waited for all children to successfully finish, output that all the children have finished, and begin formatting for output.
     fprintf(stdout, "Parent: All children finished. Primes found:\n");
 
-    // Initializes a child block for each child once again to print out each child's found prime numbers in their respective allocated range
+    // Initializes a child block for each child once again and access their locations in the block to
+    // print out each child's found prime numbers in their respective allocated range
     for (int k = 0; k < N; k++) {
+        // Access the beginning of each childs block
         int *child_block = shm_ptr + k * (block_ints_in_bytes / sizeof(int));
+
+        // Initialize the prime number count to access the 0th index of each child's block to display the found value in the output
         int prime_number_count = child_block[0];
 
-        // For loop will cycle to each child's block and print out the prime numbers placed into each block altogether in a list of numbers
+        // For loop will cycle all the way through each child's block and print out the prime numbers the child found in their allocated range,
+        // and combines all of the children's found prime numbers altogether into a long list to display.
         for (int l = 0; l < prime_number_count; l++) {
             fprintf(stdout, "%d ", child_block[1 + l]); // Prints each prime number one by one
         }
 
     }       
-    // Makes a new line to separate the list of prime numbers outputted from the terminal prompt.
+    // new line for formatting purposes
     printf("\n");
-    // Detaches the shared memory after it was accessed after initializing mem.
+
+    // Detaches the shared memory and removes it after its use.
     shmdt(shm_ptr);
     shmctl(shmid, IPC_RMID, NULL);
 }
