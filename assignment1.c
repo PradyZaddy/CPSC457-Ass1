@@ -1,105 +1,94 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <sys/wait.h>
+#include <unistd.h>
 
-int main (int argc, char *args[])
-{
+int main(int argc, char *args[]) {
 
-    int row = 100;
-    int column = 1000;
-    int treasureMatrix[100][1000];
+  // declaring out treasure Matrix
+  int row = 100;
+  int column = 1000;
+  int treasureMatrix[100][1000];
 
-    FILE *fp = fopen("test6.txt", "r");   // open file for reading
-    if (fp == NULL) 
-    {
-        perror("Error opening file");
-        return 1;
+  // reading input
+  for (int i = 0; i < row; i++) {
+    for (int j = 0; j < column; j++) {
+      if (scanf("%d", &treasureMatrix[i][j]) != 1) {
+        fprintf(stderr, "Error: Not enough input data.\n");
+        exit(1);
+      }
     }
+  }
 
-    // read all numbers into the matrix
-    for (int i = 0; i < row; i++) 
+  pid_t rcArray[100];
+
+  // fork() is called for each number of row; n(processes) = n(row)
+  for (int i = 0; i < row; i++) {
+    pid_t rc = fork();
+
+    if (rc == 0) // CHILD
     {
-        for (int j = 0; j < column; j++) 
-        {
-            fscanf(fp, "%d", &treasureMatrix[i][j]);
+      int found = 0;
+
+      for (int j = 0; j < column; j++) {
+
+        // if the treasure is found, the child returns 1 as it's exit code
+        if (treasureMatrix[i][j] == 1) {
+          found = 1;
+          exit(found);
         }
+      }
+
+      exit(found); // return 0 if not found!
     }
 
-    fclose(fp);
+    // PARENT PROCESS - if (pid > 0), we store the pid of each processes into
+    // the rcArray for reference later.
+    else {
+      rcArray[i] = rc; // storing the pid of the child processes
+      printf("Child %d (PID: %d): Searching row %d \n", i, rcArray[i], i);
+    }
+  }
 
-    pid_t rcArray[100];
+  int treasure_found = 0;
 
+  // running a for loop that waits for all the child processes to finish first.
+  for (int k = 0; k < row; k++) {
+    int status;
+    pid_t finished = wait(&status);
 
-    for (int i = 0; i < row; i++)
-    {
-        pid_t rc = fork();
+    // if the process exits successfully, we receive the 1 and stored in found.
+    if (WIFEXITED(status)) {
+      int found = WEXITSTATUS(status);
 
-        if (rc == 0) // CHILD 
-        {
-            int found = 0;
+      // as we know about the row number, we go to the column to find the exact
+      // lcoation of the treasure.
+      if (found == 1) {
 
-            for (int j = 0; j < column; j++)
-            {
+        treasure_found = 1;
 
-                if (treasureMatrix[i][j] == 1)
-                {
-                    found = 1;
-                    exit(found); // return the column where the treasure is found // CANT'T DO THIS!
-                }
+        for (int r = 0; r < row; r++) {
+          if (rcArray[r] == finished) {
+            int found_col = -1;
 
-                // exit(i); CAN'T DO THIS!, only one exit code can be returned and thats column!
+            for (int c = 0; c < column; c++) {
+              if (treasureMatrix[r][c] == 1) {
+                found_col = c;
+                break;
+              }
             }
-
-            exit(found); // return 0 if not found!
+            printf("Treasure found by child with PID %d at row %d, col %d \n",
+                   finished, found_col, r);
+          }
         }
-        
-        else
-        {
-            rcArray[i] = rc; // storing the pid of the child processes
-            printf("Child %d (PID: %d): Searching row %d \n", i, rcArray[i], i);
-
-        }
+      }
     }
+  }
 
-    int treasure_found = 0;
+  // after all children are reaped
+  if (!treasure_found) {
+    printf("Parent: No treasure found in this matrix\n");
+  }
 
-    for (int k = 0; k < row; k++) {
-        int status;
-        pid_t finished = wait(&status);
-
-        if (WIFEXITED(status)) {
-            int found = WEXITSTATUS(status);
-
-            if (found == 1) 
-            { // treasure found
-                treasure_found = 1;
-                for (int r = 0; r < row; r++) 
-                {
-                    if (rcArray[r] == finished) 
-                    {
-                        int found_col = -1; 
-                        for (int c = 0; c < column; c++) 
-                        {
-                            if (treasureMatrix[r][c] == 1) 
-                            {
-                                found_col = c;
-                                break;
-                            }
-                        }
-                        printf("Treasure found at row %d, col %d by child PID %d\n",
-                            r, found_col, finished);
-                    }
-                }
-            }
-        }
-    }
-
-    // after all children are reaped
-    if (!treasure_found) {
-        printf("Parent: No treasure found in this matrix\n");
-    }
-
-    return 0;
+  return 0;
 }
-
