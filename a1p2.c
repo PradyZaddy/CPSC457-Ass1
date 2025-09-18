@@ -54,6 +54,7 @@ int main (int argc, char *args[]) {
 
     int number_of_elements_between_bounds = (UPPER_BOUND - LOWER_BOUND + 1);     // Count of the amount of elements between the bounds (inclusive)
 
+    // Conditional ensures number of processes (N) never exceeds number of elements between bounds
     if (N > number_of_elements_between_bounds) {
         fprintf(stderr, "Number of processes (N) cannot be greater than the number of elements between bounds");
         printf("\n");   // New line only for formatting purposes
