@@ -22,6 +22,7 @@ int main (int argc, char *args[]) {
     // Checks if there is 4 arguments in total (program, lower bound, upper bound, number of processes)
     if (argc != 4) {
         fprintf(stderr, "Input error. Program input must be integers in the following format: \n [Lower Bound] [Upper Bound] [Number of processes]");  // Error message for incorrect input
+        printf("\n");   // New line purely for formatting purposes
         exit(1);    // Generic Error program exit
     }
 
@@ -32,33 +33,43 @@ int main (int argc, char *args[]) {
     // Setting error for invalid lower bound
     if (LOWER_BOUND > UPPER_BOUND) {
         fprintf(stderr, "Lower bound must be less than upper bound");
+        printf("\n");   // New line purely for formatting purposes
+
         exit(1);
     }
 
     // Setting error for invalid upper bound
     if (UPPER_BOUND < LOWER_BOUND) {
         fprintf(stderr, "Upper bound must be greater than lower bound");
+        printf("\n");   // New line purely for formatting purposes
         exit(1);
     }
 
     // Setting error for invalid number of processes
     if (N <= 0) {
         fprintf(stderr, "Number of processes (N) must be greater than 0");
+        printf("\n");   // New line purely for formatting purposes
+        exit(1);
+    }
+
+    int number_of_elements_between_bounds = (UPPER_BOUND - LOWER_BOUND + 1);     // Count of the amount of elements between the bounds (inclusive)
+
+    if (N > number_of_elements_between_bounds) {
+        fprintf(stderr, "Number of processes (N) cannot be greater than the number of elements between bounds");
+        printf("\n");   // New line only for formatting purposes
         exit(1);
     }
 
 
 
-
-
-    // Allocate shared memory
-    // Give each child its own block
-    // 1000 integers per process to fit the number of integers, plus 4 bytes for the count of amount of primes in total.
-    size_t block_ints_in_bytes = 1001 * sizeof(int);
+    // According to the advice of the genius TA Samuel, I have made this variable embody the size of the child blocks to be the amount of elements between the bounds
+    // Replaces my former Dummy value of 1000 integers maximum to adjust size of each block according to the input.
+    // +1 to account for prime number count
+    size_t block_ints_in_bytes_efficient = (1 + number_of_elements_between_bounds) * sizeof(int);
     
     // Total memory allocated for all processes (N) altogether.
     // Named "SIZE" as per assignment document highlights
-    size_t SIZE = block_ints_in_bytes * N;
+    size_t SIZE = block_ints_in_bytes_efficient * N;
 
     // 4000 bytes allocated to ensure a maximum of 1000 integers + plus the 4 bytes for the count of the amount of primes, since each integer is 4 bytes
     int shmid = shmget(IPC_PRIVATE, SIZE, IPC_CREAT | 0666);
@@ -96,7 +107,7 @@ int main (int argc, char *args[]) {
             // To write the total count of primes each child has found, child_block divides each child by their allocated block in shm_ptr
             // We allocate each child to its own block by marking the beginning of its section in the shared memory array.
             // With this, the child process can access and append the prime number data into its own block
-            int *child_block = shm_ptr + i * block_ints_in_bytes / sizeof(int);
+            int *child_block = shm_ptr + i * block_ints_in_bytes_efficient / sizeof(int);
 
             // initialize the count of primes found in range, starting from 0.
             int prime_number_count = 0;
@@ -142,7 +153,7 @@ int main (int argc, char *args[]) {
     // print out each child's found prime numbers in their respective allocated range
     for (int k = 0; k < N; k++) {
         // Access the beginning of each childs block
-        int *child_block = shm_ptr + k * (block_ints_in_bytes / sizeof(int));
+        int *child_block = shm_ptr + k * (block_ints_in_bytes_efficient / sizeof(int));
 
         // Initialize the prime number count to access the 0th index of each child's block to display the found value in the output
         int prime_number_count = child_block[0];
