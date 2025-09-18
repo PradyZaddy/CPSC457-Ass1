@@ -1,3 +1,6 @@
+// CPSC 457 Assignment 1 Part A
+// Authors: Nathaniel Appiah, Pradhyuman Nandal
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/wait.h>
